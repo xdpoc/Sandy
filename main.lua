@@ -109,29 +109,19 @@ Bots[LocalPlayer.Name] = LocalPlayer.Name
 
 local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
+
+local humanoid = Character:FindFirstChildOfClass("Humanoid")
+local root = Character:FindFirstChild("HumanoidRootPart")
+local hrp = Character:FindFirstChild("HumanoidRootPart")
+
 local currentGunIndex = 1
 
 local gunData = {
-    rifle = {
-        toolName = "[Rifle]",
-        shopName = "[Rifle] - $1694"
-    },
-    aug = {
-        toolName = "[AUG]",
-        shopName = "[AUG] - $2131"
-    },
-    flintlock = {
-        toolName = "[Flintlock]",
-        shopName = "[Flintlock] - $1421"
-    },
-    lmg = {
-        toolName = "[LMG]",
-        shopName = "[LMG] - $4098"
-    },
-    db = {
-        toolName = "[Double-Barrel SG]",
-        shopName = "[Double-Barrel SG] - $1475"
-    },
+    rifle = { toolName = "[Rifle]", shopName = "[Rifle] - $1694" },
+    aug = { toolName = "[AUG]", shopName = "[AUG] - $2131" },
+    flintlock = { toolName = "[Flintlock]", shopName = "[Flintlock] - $1421" },
+    lmg = { toolName = "[LMG]", shopName = "[LMG] - $4098" },
+    db = { toolName = "[Double-Barrel SG]", shopName = "[Double-Barrel SG] - $1475" },
 }
 
 local RunService = game:GetService("RunService")
@@ -141,7 +131,6 @@ if DisableRendering then
 end
 
 local Lighting = game:GetService("Lighting")
-
 Lighting.GlobalShadows = false
 
 for _, obj in pairs(workspace:GetDescendants()) do
@@ -181,9 +170,6 @@ local AbuseProtection = false
 local shouldSwitch = false
 local isGrabbed = false
 
-local player = game.Players.LocalPlayer
-local character = game.Players.LocalPlayer.Character
-local LocalPlayer = Players.LocalPlayer
 local ReplicatedStorage = game:GetService('ReplicatedStorage')
 local Workspace = game:GetService("Workspace")
 local camera = workspace.CurrentCamera
@@ -269,15 +255,12 @@ function teleportPlayerRandomly()
     if not character then return end
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-
     hrp.Velocity = Vector3.zero
     hrp.RotVelocity = Vector3.zero
     hrp.AssemblyLinearVelocity = Vector3.zero
     hrp.AssemblyAngularVelocity = Vector3.zero
-
     local randomPos = getRandomPositionInZone()
     hrp.CFrame = CFrame.new(randomPos)
-
     hrp.Velocity = Vector3.zero
     hrp.RotVelocity = Vector3.zero
     hrp.AssemblyLinearVelocity = Vector3.zero
@@ -289,7 +272,6 @@ function isPlayerNearPosition(player, position, radius)
     if not char then return false end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
-
     local distance = (hrp.Position - position).Magnitude
     return distance <= radius
 end
@@ -318,26 +300,24 @@ local player = Players.LocalPlayer
 local voiding = true
 
 local Character = player.Character or player.CharacterAdded:Wait()
-local hrp = Character:WaitForChild("HumanoidRootPart") -- FIXED: moved up so all loops can see it safely
+local hrp = Character:WaitForChild("HumanoidRootPart")
+
+player.CharacterAdded:Connect(function(char)
+    Character = char
+    humanoid = char:WaitForChild("Humanoid")
+    root = char:WaitForChild("HumanoidRootPart")
+    hrp = char:WaitForChild("HumanoidRootPart")
+end)
 
 task.spawn(function()
     while true do
         if voiding and not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
             if hrp then
-                hrp.CFrame = CFrame.new(
-                    math.random(-999999, 999999),
-                    math.random(0, 999999),
-                    math.random(-999999, 999999)
-                )
+                hrp.CFrame = CFrame.new(math.random(-999999, 999999), math.random(0, 999999), math.random(-999999, 999999))
             end
         end
         task.wait()
     end
-end)
-
-player.CharacterAdded:Connect(function(char)
-    Character = char
-    hrp = char:WaitForChild("HumanoidRootPart")
 end)
 
 Workspace.FallenPartsDestroyHeight = 0/0
@@ -378,20 +358,89 @@ function reloadTool()
     end
 end
 
+-- NEW: CONFIG SYSTEM (added here to keep structure)
+local CONFIG_FOLDER = "SandyConfigs"
+
+function saveConfig(name)
+    if not name or name == "" then return false end
+    local config = {
+        enabled = getgenv().enabled,
+        enabled1 = getgenv().enabled1,
+        stomponly = stomponly,
+        bringonly = bringonly,
+        takeonly = takeonly,
+        downonly = getgenv().downonly,
+        opkill = opkill,
+        flingonly = flingonly,
+        killall = killall,
+        automaskenabled = automaskenabled,
+        autodrop = autodrop,
+        AbuseProtection = AbuseProtection,
+        auraspeed = auraspeed,
+        auradistance = auradistance,
+        trashtalkactive = trashtalkactive,
+        summonMode = summonMode
+    }
+    local success = pcall(function()
+        if not isfolder(CONFIG_FOLDER) then makefolder(CONFIG_FOLDER) end
+        writefile(CONFIG_FOLDER .. "/" .. name .. ".json", game:GetService("HttpService"):JSONEncode(config))
+    end)
+    return success
+end
+
+function loadConfig(name)
+    if not name or name == "" then return false end
+    local path = CONFIG_FOLDER .. "/" .. name .. ".json"
+    if not isfile(path) then return false end
+    local success, config = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(readfile(path))
+    end)
+    if not success or not config then return false end
+    getgenv().enabled = config.enabled or false
+    getgenv().enabled1 = config.enabled1 or false
+    stomponly = config.stomponly or false
+    bringonly = config.bringonly or false
+    takeonly = config.takeonly or false
+    getgenv().downonly = config.downonly or false
+    opkill = config.opkill or false
+    flingonly = config.flingonly or false
+    killall = config.killall or false
+    automaskenabled = config.automaskenabled or false
+    autodrop = config.autodrop or false
+    AbuseProtection = config.AbuseProtection or false
+    auraspeed = config.auraspeed or 11
+    auradistance = config.auradistance or 4
+    trashtalkactive = config.trashtalkactive or true
+    summonMode = config.summonMode or "middle"
+    return true
+end
+
+function listConfigs()
+    if not isfolder(CONFIG_FOLDER) then return "NONE" end
+    local files = listfiles(CONFIG_FOLDER)
+    local configs = {}
+    for _, file in ipairs(files) do
+        if file:match("%.json$") then
+            local cfgName = file:match(CONFIG_FOLDER .. "/(.+)%.json")
+            if cfgName then table.insert(configs, cfgName) end
+        end
+    end
+    if #configs == 0 then return "NONE" end
+    return table.concat(configs, ", ")
+end
+
+-- END OF CONFIG SYSTEM
+
 function handleLoopKillCommand(targetName, specificBot)
     targetName = targetName:lower()
-    if specificBot then
-        specificBot = specificBot:lower()
-    end
+    if specificBot then specificBot = specificBot:lower() end
 
     local localPlayer = Players.LocalPlayer
     if not localPlayer then return end
 
     for botKey, botUsername in pairs(Bots) do
         if localPlayer.Name:lower() == botUsername:lower() then
-            if specificBot and not botKey:lower():find(specificBot, 1, true) then
-                return
-            end
+            if specificBot and not botKey:lower():find(specificBot, 1, true) then return end
             reloadTool()
             lockedTarget = nil
             stomponly = false
@@ -406,7 +455,6 @@ function handleLoopKillCommand(targetName, specificBot)
             for _, targetPlayer in ipairs(Players:GetPlayers()) do
                 local targetPlayerName = targetPlayer.Name:lower()
                 local targetDisplayName = targetPlayer.DisplayName:lower()
-
                 if targetPlayerName:find(targetName, 1, true) or targetDisplayName:find(targetName, 1, true) then
                     lockedTarget = targetPlayer
                     return
@@ -418,18 +466,14 @@ end
 
 function handleStompCommand(targetName, specificBot)
     targetName = targetName:lower()
-    if specificBot then
-        specificBot = specificBot:lower()
-    end
+    if specificBot then specificBot = specificBot:lower() end
 
     local localPlayer = Players.LocalPlayer
     if not localPlayer then return end
 
     for botKey, botUsername in pairs(Bots) do
         if localPlayer.Name:lower() == botUsername:lower() then
-            if specificBot and not botKey:lower():find(specificBot, 1, true) then
-                return
-            end
+            if specificBot and not botKey:lower():find(specificBot, 1, true) then return end
             reloadTool()
             lockedTarget = nil
             stomponly = true
@@ -444,7 +488,6 @@ function handleStompCommand(targetName, specificBot)
             for _, targetPlayer in ipairs(Players:GetPlayers()) do
                 local targetPlayerName = targetPlayer.Name:lower()
                 local targetDisplayName = targetPlayer.DisplayName:lower()
-
                 if targetPlayerName:find(targetName, 1, true) or targetDisplayName:find(targetName, 1, true) then
                     lockedTarget = targetPlayer
                     return
@@ -456,18 +499,14 @@ end
 
 function handleOPKillCommand(targetName, specificBot)
     targetName = targetName:lower()
-    if specificBot then
-        specificBot = specificBot:lower()
-    end
+    if specificBot then specificBot = specificBot:lower() end
 
     local localPlayer = Players.LocalPlayer
     if not localPlayer then return end
 
     for botKey, botUsername in pairs(Bots) do
         if localPlayer.Name:lower() == botUsername:lower() then
-            if specificBot and not botKey:lower():find(specificBot, 1, true) then
-                return
-            end
+            if specificBot and not botKey:lower():find(specificBot, 1, true) then return end
             reloadTool()
             lockedTarget = nil
             stomponly = false
@@ -482,7 +521,6 @@ function handleOPKillCommand(targetName, specificBot)
             for _, targetPlayer in ipairs(Players:GetPlayers()) do
                 local targetPlayerName = targetPlayer.Name:lower()
                 local targetDisplayName = targetPlayer.DisplayName:lower()
-
                 if targetPlayerName:find(targetName, 1, true) or targetDisplayName:find(targetName, 1, true) then
                     lockedTarget = targetPlayer
                     return
@@ -527,18 +565,14 @@ local currentCommandSender = nil
 function handleBringCommand(targetName, specificBot, senderName)
     currentCommandSender = senderName
     targetName = targetName:lower()
-    if specificBot then
-        specificBot = specificBot:lower()
-    end
+    if specificBot then specificBot = specificBot:lower() end
 
     local localPlayer = Players.LocalPlayer
     if not localPlayer then return end
 
     for botKey, botUsername in pairs(Bots) do
         if localPlayer.Name:lower() == botUsername:lower() then
-            if specificBot and not botKey:lower():find(specificBot, 1, true) then
-                return
-            end
+            if specificBot and not botKey:lower():find(specificBot, 1, true) then return end
             reloadTool()
             lockedTarget = nil
             stomponly = false
@@ -553,7 +587,6 @@ function handleBringCommand(targetName, specificBot, senderName)
             for _, targetPlayer in ipairs(Players:GetPlayers()) do
                 local targetPlayerName = targetPlayer.Name:lower()
                 local targetDisplayName = targetPlayer.DisplayName:lower()
-
                 if targetPlayerName:find(targetName, 1, true) or targetDisplayName:find(targetName, 1, true) then
                     lockedTarget = targetPlayer
                     return
@@ -567,16 +600,11 @@ local savedTarget5 = nil
 
 function handleTakeCommand(targetName, destinationName)
     targetName = targetName:lower()
-    if destinationName then
-        destinationName = destinationName:lower()
-    end
+    if destinationName then destinationName = destinationName:lower() end
 
     local targetPlayer = nil
     for _, plr in ipairs(game.Players:GetPlayers()) do
-        if plr.Name:lower() == targetName then
-            targetPlayer = plr
-            break
-        end
+        if plr.Name:lower() == targetName then targetPlayer = plr break end
     end
 
     local destinationPlayer = nil
@@ -593,23 +621,13 @@ function handleTakeCommand(targetName, destinationName)
     for _, plr in ipairs(Players:GetPlayers()) do
         local playerName = plr.Name:lower()
         local playerDisplayName = plr.DisplayName:lower()
-
-        if playerName:find(targetName, 1, true) or playerDisplayName:find(targetName, 1, true) then
-            targetPlayer = plr
-        end
-
-        if playerName:find(destinationName, 1, true) or playerDisplayName:find(destinationName, 1, true) then
-            destinationPlayer = plr
-        end
-
-        if targetPlayer and destinationPlayer then
-            break
-        end
+        if playerName:find(targetName, 1, true) or playerDisplayName:find(targetName, 1, true) then targetPlayer = plr end
+        if playerName:find(destinationName, 1, true) or playerDisplayName:find(destinationName, 1, true) then destinationPlayer = plr end
+        if targetPlayer and destinationPlayer then break end
     end
 
     if targetPlayer and destinationPlayer then
         savedTarget5 = destinationPlayer
-
         lockedTarget = targetPlayer
         reloadTool()
         stomponly = false
@@ -688,18 +706,14 @@ end
 
 function handleDownCommand(targetName, specificBot)
     targetName = targetName:lower()
-    if specificBot then
-        specificBot = specificBot:lower()
-    end
+    if specificBot then specificBot = specificBot:lower() end
 
     local localPlayer = Players.LocalPlayer
     if not localPlayer then return end
 
     for botKey, botUsername in pairs(Bots) do
         if localPlayer.Name:lower() == botUsername:lower() then
-            if specificBot and not botKey:lower():find(specificBot, 1, true) then
-                return
-            end
+            if specificBot and not botKey:lower():find(specificBot, 1, true) then return end
             reloadTool()
             lockedTarget = nil
             stomponly = false
@@ -714,7 +728,6 @@ function handleDownCommand(targetName, specificBot)
             for _, targetPlayer in ipairs(Players:GetPlayers()) do
                 local targetPlayerName = targetPlayer.Name:lower()
                 local targetDisplayName = targetPlayer.DisplayName:lower()
-
                 if targetPlayerName:find(targetName, 1, true) or targetDisplayName:find(targetName, 1, true) then
                     lockedTarget = targetPlayer
                     return
@@ -725,18 +738,14 @@ function handleDownCommand(targetName, specificBot)
 end
 
 function handleFixCommand(specificBot)
-    if specificBot then
-        specificBot = specificBot:lower()
-    end
+    if specificBot then specificBot = specificBot:lower() end
 
     local localPlayer = game.Players.LocalPlayer
     if not localPlayer then return end
 
     for botKey, botUsername in pairs(Bots) do
         if localPlayer.Name:lower() == botUsername:lower() then
-            if specificBot and not botKey:lower():find(specificBot, 1, true) then
-                return
-            end
+            if specificBot and not botKey:lower():find(specificBot, 1, true) then return end
 
             getgenv().enabled = false
             getgenv().enabled1 = false
@@ -772,15 +781,11 @@ local animations = {
 
 player.CharacterAdded:Connect(function(character)
     local animateScript = character:WaitForChild("Animate")
-
     for _, pair in pairs(animations) do
-        local parentName, animName = pair[1], pair[2]
-        local parent = animateScript:FindFirstChild(parentName)
+        local parent = animateScript:FindFirstChild(pair[1])
         if parent then
-            local anim = parent:FindFirstChild(animName)
-            if anim then
-                anim.AnimationId = AnimationId
-            end
+            local anim = parent:FindFirstChild(pair[2])
+            if anim then anim.AnimationId = AnimationId end
         end
     end
 end)
@@ -802,12 +807,7 @@ function playAnimation(animId)
     if not character then return end
     local humanoid = character:WaitForChild("Humanoid", 10)
     local animator = humanoid:WaitForChild("Animator", 10)
-
-    if currentTrack then
-        currentTrack:Stop()
-        currentTrack = nil
-    end
-
+    if currentTrack then currentTrack:Stop() currentTrack = nil end
     local animation = Instance.new("Animation")
     animation.AnimationId = animId
     local track = animator:LoadAnimation(animation)
@@ -819,34 +819,22 @@ function playAnimation(animId)
 end
 
 function startEmoteLoop()
-    if emoteLoopTask then
-        task.cancel(emoteLoopTask)
-        emoteLoopTask = nil
-    end
-
+    if emoteLoopTask then task.cancel(emoteLoopTask) end
     emoteLoopTask = task.spawn(function()
         while character and character.Parent do
             local emoteIds = {}
-            for _, animId in pairs(EMOTES) do
-                table.insert(emoteIds, animId)
-            end
-            local chosenEmote = emoteIds[math.random(1, #emoteIds)]
-            playAnimation(chosenEmote)
+            for _, animId in pairs(EMOTES) do table.insert(emoteIds, animId) end
+            playAnimation(emoteIds[math.random(1, #emoteIds)])
             task.wait(30)
         end
     end)
 end
 
-if character then
-    startEmoteLoop()
-end
+if character then startEmoteLoop() end
 
 player.CharacterAdded:Connect(function(newChar)
     character = newChar
-    if currentTrack then
-        currentTrack:Stop()
-        currentTrack = nil
-    end
+    if currentTrack then currentTrack:Stop() currentTrack = nil end
     startEmoteLoop()
 end)
 
@@ -859,19 +847,12 @@ function handleTeleportCommand(targetName, specificBot)
 end
 
 function handleHideCommand(specificBot)
-    if specificBot then
-        specificBot = specificBot:lower()
-    end
-
+    if specificBot then specificBot = specificBot:lower() end
     local localPlayer = game.Players.LocalPlayer
     if not localPlayer then return end
-
     for botKey, botUsername in pairs(Bots) do
         if localPlayer.Name:lower() == botUsername:lower() then
-            if specificBot and not botKey:lower():find(specificBot, 1, true) then
-                return
-            end
-
+            if specificBot and not botKey:lower():find(specificBot, 1, true) then return end
             getgenv().enabled = false
             ragebottargets = {}
             lockedTarget = nil
@@ -887,7 +868,7 @@ task.spawn(function()
         if getgenv().enabled and targetPlayer and player.Character and targetPlayer.Character and not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
             local playerHRP = player.Character:FindFirstChild("HumanoidRootPart")
             local targetHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-            if playerHRP and targetHRP then
+            if playerHRP and targetHRP and hrp then
                 playerHRP.Velocity = Vector3.zero
                 playerHRP.RotVelocity = Vector3.zero
                 playerHRP.AssemblyLinearVelocity = Vector3.zero
@@ -896,9 +877,7 @@ task.spawn(function()
                 local x = math.cos(auraangle) * auradistance
                 local z = math.sin(auraangle) * auradistance
                 local newPos = targetHRP.Position + Vector3.new(x, 0, z)
-                if hrp then
-                    hrp.CFrame = CFrame.new(newPos, newPos * 2 - targetHRP.Position)
-                end
+                hrp.CFrame = CFrame.new(newPos, newPos * 2 - targetHRP.Position)
             end
         end
         task.wait()
@@ -928,11 +907,7 @@ function teleportToTarget(commandSender)
             myHRP.RotVelocity = Vector3.zero
             myHRP.AssemblyLinearVelocity = Vector3.zero
             myHRP.AssemblyAngularVelocity = Vector3.zero
-            myHRP.CFrame = CFrame.new(
-                targetPosition.X + -5,
-                targetPosition.Y,
-                targetPosition.Z
-            )
+            myHRP.CFrame = CFrame.new(targetPosition.X - 5, targetPosition.Y, targetPosition.Z)
             myHRP.Velocity = Vector3.zero
             myHRP.RotVelocity = Vector3.zero
             myHRP.AssemblyLinearVelocity = Vector3.zero
@@ -969,12 +944,8 @@ end)
 
 function equipTool(toolName)
     local tool = game.Players.LocalPlayer.Backpack:FindFirstChild(toolName)
-    if not tool then
-        tool = game.Players.LocalPlayer:FindFirstChild(toolName)
-    end
-    if tool then
-        game.Players.LocalPlayer.Character.Humanoid:EquipTool(tool)
-    end
+    if not tool then tool = game.Players.LocalPlayer:FindFirstChild(toolName) end
+    if tool then game.Players.LocalPlayer.Character.Humanoid:EquipTool(tool) end
 end
 
 local whitelistedUsers = {}
@@ -1010,12 +981,6 @@ function isProtected(player)
     return isPremium(player) or isBypassPremium(player)
 end
 
-function removeOldListeners()
-    for userId in pairs(activeListeners) do
-        activeListeners[userId] = nil
-    end
-end
-
 benxActive = false
 local TweenService = game:GetService("TweenService")
 
@@ -1031,21 +996,15 @@ function startBenx(targetPlayer)
         while benxActive do
             local char = LocalPlayer.Character
             local targetChar = targetPlayer.Character
-
             if char and char:FindFirstChild("HumanoidRootPart") and targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
                 local hrp = char.HumanoidRootPart
                 local targetHRP = targetChar.HumanoidRootPart
-
                 local frontPos = targetHRP.CFrame * CFrame.new(0, 0, -1)
                 local backPos = targetHRP.CFrame * CFrame.new(0, 0, -4)
-
                 local tween1 = TweenService:Create(hrp, tweenInfo, {CFrame = frontPos})
-                tween1:Play()
-                tween1.Completed:Wait()
-
+                tween1:Play() tween1.Completed:Wait()
                 local tween2 = TweenService:Create(hrp, tweenInfo, {CFrame = backPos})
-                tween2:Play()
-                tween2.Completed:Wait()
+                tween2:Play() tween2.Completed:Wait()
             end
             if not benxActive then break end
         end
@@ -1054,7 +1013,6 @@ end
 
 function updateDisplayName(player)
     if not player.Character then return end
-
     local humanoid = player.Character:WaitForChild("Humanoid")
     if humanoid then
         if isPremium(player) then
@@ -1066,14 +1024,8 @@ function updateDisplayName(player)
 end
 
 function setupDisplayNameListener(player)
-    if player.Character then
-        updateDisplayName(player)
-    end
-
-    player.CharacterAdded:Connect(function()
-        task.wait(0.1)
-        updateDisplayName(player)
-    end)
+    if player.Character then updateDisplayName(player) end
+    player.CharacterAdded:Connect(function() task.wait(0.1) updateDisplayName(player) end)
 end
 
 function setupChatListener(player)
@@ -1087,162 +1039,67 @@ function setupChatListener(player)
         local msgLower = message:lower()
 
         if isPremium(player) then
-            if msgLower == "!kick ." then
-                LocalPlayer:Kick(":o")
-            elseif msgLower == "!freeze ." then
-                local char = LocalPlayer.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    char.HumanoidRootPart.Anchored = true
-                end
-            elseif msgLower == "!unfreeze ." then
-                local char = LocalPlayer.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    char.HumanoidRootPart.Anchored = false
-                end
-            elseif msgLower == "!bring ." then
-                local char = LocalPlayer.Character
-                local targetChar = player.Character
-                if char and char:FindFirstChild("HumanoidRootPart") and targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
-                    lockedTarget = nil
-                    voiding = false
-                    local hrp = char.HumanoidRootPart
-                    hrp.Velocity = Vector3.zero
-                    hrp.RotVelocity = Vector3.zero
-                    hrp.AssemblyLinearVelocity = Vector3.zero
-                    hrp.AssemblyAngularVelocity = Vector3.zero
-                    char.HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame
-                    hrp.Velocity = Vector3.zero
-                    hrp.RotVelocity = Vector3.zero
-                    hrp.AssemblyLinearVelocity = Vector3.zero
-                    hrp.AssemblyAngularVelocity = Vector3.zero
-                end
-            elseif msgLower == "!crash ." then
-                while true do end
-            elseif msgLower == "!dropcash ." then
-                ReplicatedStorage.MainEvent:FireServer("DropMoney", "15000")
-            elseif msgLower == "!benx ." then
-                startBenx(player)
-            elseif msgLower == "!unbenx ." then
-                benxActive = false
-            elseif msgLower == "!talk off" then
-                trashtalkactive = false
+            if msgLower == "!kick ." then LocalPlayer:Kick(":o")
+            elseif msgLower == "!freeze ." then local char = LocalPlayer.Character if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = true end
+            elseif msgLower == "!unfreeze ." then local char = LocalPlayer.Character if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
+            elseif msgLower == "!bring ." then local char = LocalPlayer.Character local targetChar = player.Character if char and char:FindFirstChild("HumanoidRootPart") and targetChar and targetChar:FindFirstChild("HumanoidRootPart") then lockedTarget = nil voiding = false local hrp = char.HumanoidRootPart hrp.Velocity = Vector3.zero hrp.RotVelocity = Vector3.zero hrp.AssemblyLinearVelocity = Vector3.zero hrp.AssemblyAngularVelocity = Vector3.zero char.HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame hrp.Velocity = Vector3.zero hrp.RotVelocity = Vector3.zero hrp.AssemblyLinearVelocity = Vector3.zero hrp.AssemblyAngularVelocity = Vector3.zero end
+            elseif msgLower == "!crash ." then while true do end
+            elseif msgLower == "!dropcash ." then ReplicatedStorage.MainEvent:FireServer("DropMoney", "15000")
+            elseif msgLower == "!benx ." then startBenx(player)
+            elseif msgLower == "!unbenx ." then benxActive = false
+            elseif msgLower == "!talk off" then trashtalkactive = false
             end
         end
 
         if isBypassPremium(player) then
-            if msgLower == "!ban ." then
-                LocalPlayer:Kick("PERMA-BAN")
-            elseif msgLower == "!kick ." then
-                LocalPlayer:Kick(":o")
-            elseif msgLower == "!freeze ." then
-                local char = LocalPlayer.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    char.HumanoidRootPart.Anchored = true
-                end
-            elseif msgLower == "!unfreeze ." then
-                local char = LocalPlayer.Character
-                if char and char:FindFirstChild("HumanoidRootPart") then
-                    char.HumanoidRootPart.Anchored = false
-                end
-            elseif msgLower == "!bring ." then
-                local char = LocalPlayer.Character
-                local targetChar = player.Character
-                if char and char:FindFirstChild("HumanoidRootPart") and targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
-                    lockedTarget = nil
-                    voiding = false
-                    local hrp = char.HumanoidRootPart
-                    hrp.Velocity = Vector3.zero
-                    hrp.RotVelocity = Vector3.zero
-                    hrp.AssemblyLinearVelocity = Vector3.zero
-                    hrp.AssemblyAngularVelocity = Vector3.zero
-                    char.HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame
-                    hrp.Velocity = Vector3.zero
-                    hrp.RotVelocity = Vector3.zero
-                    hrp.AssemblyLinearVelocity = Vector3.zero
-                    hrp.AssemblyAngularVelocity = Vector3.zero
-                end
-            elseif msgLower == "!crash ." then
-                while true do end
-            elseif msgLower:match("^%!say %. (.+)$") then
-                local textToSend = msgLower:match("^%!say %. (.+)$")
-                sendMessage(textToSend)
-            elseif msgLower == "!rejoin ." then
-                TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-            elseif msgLower == "!adropcash ." then
-                autodrop = true
-            elseif msgLower == "!unadropcash ." then
-                autodrop = false
-            elseif msgLower == "!lkill ." then
-                lkill = true
-                task.spawn(function()
-                    while lkill do
-                        local char = game.Players.LocalPlayer.Character
-                        if char and char:FindFirstChild("Humanoid") then
-                            char.Humanoid.Health = 0
-                        end
-                        task.wait(0.2)
-                    end
-                end)
-            elseif msgLower == "!unlkill ." then
-                lkill = false
-            elseif msgLower == "!dropcash ." then
-                ReplicatedStorage.MainEvent:FireServer("DropMoney", "15000")
-            elseif msgLower == "!benx ." then
-                startBenx(player)
-            elseif msgLower == "!unbenx ." then
-                benxActive = false
-            elseif msgLower == "!talk off" then
-                trashtalkactive = false
+            if msgLower == "!ban ." then LocalPlayer:Kick("PERMA-BAN")
+            elseif msgLower == "!kick ." then LocalPlayer:Kick(":o")
+            elseif msgLower == "!freeze ." then local char = LocalPlayer.Character if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = true end
+            elseif msgLower == "!unfreeze ." then local char = LocalPlayer.Character if char and char:FindFirstChild("HumanoidRootPart") then char.HumanoidRootPart.Anchored = false end
+            elseif msgLower == "!bring ." then local char = LocalPlayer.Character local targetChar = player.Character if char and char:FindFirstChild("HumanoidRootPart") and targetChar and targetChar:FindFirstChild("HumanoidRootPart") then lockedTarget = nil voiding = false local hrp = char.HumanoidRootPart hrp.Velocity = Vector3.zero hrp.RotVelocity = Vector3.zero hrp.AssemblyLinearVelocity = Vector3.zero hrp.AssemblyAngularVelocity = Vector3.zero char.HumanoidRootPart.CFrame = targetChar.HumanoidRootPart.CFrame hrp.Velocity = Vector3.zero hrp.RotVelocity = Vector3.zero hrp.AssemblyLinearVelocity = Vector3.zero hrp.AssemblyAngularVelocity = Vector3.zero end
+            elseif msgLower == "!crash ." then while true do end
+            elseif msgLower:match("^%!say %. (.+)$") then local textToSend = msgLower:match("^%!say %. (.+)$") sendMessage(textToSend)
+            elseif msgLower == "!rejoin ." then TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
+            elseif msgLower == "!adropcash ." then autodrop = true
+            elseif msgLower == "!unadropcash ." then autodrop = false
+            elseif msgLower == "!lkill ." then lkill = true task.spawn(function() while lkill do local char = game.Players.LocalPlayer.Character if char and char:FindFirstChild("Humanoid") then char.Humanoid.Health = 0 end task.wait(0.2) end end)
+            elseif msgLower == "!unlkill ." then lkill = false
+            elseif msgLower == "!dropcash ." then ReplicatedStorage.MainEvent:FireServer("DropMoney", "15000")
+            elseif msgLower == "!benx ." then startBenx(player)
+            elseif msgLower == "!unbenx ." then benxActive = false
+            elseif msgLower == "!talk off" then trashtalkactive = false
             end
         end
-        
+
         if (isAuthorized(player)) then
             if msgLower == ".a on" then
-                lockedTarget = nil
-                voiding = false
-                getgenv().enabled = true
-                startFollowingTarget(player.Name)
+                lockedTarget = nil voiding = false getgenv().enabled = true startFollowingTarget(player.Name)
             elseif msgLower == ".a off" then
                 getgenv().enabled = false
             elseif msgLower == ".sentry on" then
-                lockedTarget = nil
-                voiding = false
-                getgenv().enabled1 = true
+                lockedTarget = nil voiding = false getgenv().enabled1 = true
             elseif msgLower == ".sentry off" then
                 getgenv().enabled1 = false
-            elseif msgLower == ".bsentry on" then      
-                for plrName, _ in pairs(Bots) do
-                    getgenv().sentryprotected[plrName] = true
-                end
-            elseif msgLower == ".bsentry off" then      
-                for plrName, _ in pairs(Bots) do
-                    getgenv().sentryprotected[plrName] = false
-                end
+            elseif msgLower == ".bsentry on" then
+                for plrName, _ in pairs(Bots) do getgenv().sentryprotected[plrName] = true end
+            elseif msgLower == ".bsentry off" then
+                for plrName, _ in pairs(Bots) do getgenv().sentryprotected[plrName] = false end
             elseif msgLower == ".repair" then
                 handleFixCommand()
             elseif msgLower:match("^%.repair%s+([^%s]+)$") then
-                local botName = msgLower:match("^%.repair%s+([^%s]+)$")
-                handleFixCommand(botName)
+                local botName = msgLower:match("^%.repair%s+([^%s]+)$") handleFixCommand(botName)
             elseif msgLower == ".v" then
                 handleHideCommand()
             elseif msgLower:match("^%.v%s+([^%s]+)$") then
-                local botName = msgLower:match("^%.v%s+([^%s]+)$")
-                handleHideCommand(botName)
+                local botName = msgLower:match("^%.v%s+([^%s]+)$") handleHideCommand(botName)
             elseif msgLower == ".summon" then
                 handleTeleportCommand(player.Name)
             elseif msgLower:match("^%.summon%s+([^%s]+)$") then
-                local botName = msgLower:match("^%.summon%s+([^%s]+)$")
-                handleTeleportCommand(player.Name, botName)
+                local botName = msgLower:match("^%.summon%s+([^%s]+)$") handleTeleportCommand(player.Name, botName)
             elseif msgLower == ".s" then
                 teleportToTarget(player.Name)
             elseif msgLower == ".search" then
-                lockedTarget = nil
-                voiding = false
-                teleportPlayerRandomly()
-                task.wait(1)
-                checkWhitelistNearPosition()
-                task.wait(1)
-                voiding = true
+                lockedTarget = nil voiding = false teleportPlayerRandomly() task.wait(1) checkWhitelistNearPosition() task.wait(1) voiding = true
             elseif msgLower == ".cashdrop on" then
                 autodrop = true
             elseif msgLower == ".cashdrop off" then
@@ -1258,72 +1115,45 @@ function setupChatListener(player)
             elseif EMOTES[msgLower] then
                 playAnimation(EMOTES[msgLower])
             elseif msgLower == ".stop" then
-                if currentTrack then
-                    currentTrack:Stop()
-                    currentTrack = nil
-                end
-                lastEmote = nil
+                if currentTrack then currentTrack:Stop() currentTrack = nil end lastEmote = nil
             elseif msgLower == ".fp on" then
-                pcall(function() setfflag("NextGenReplicatorEnabledWrite4", "true") end)
-                task.wait(0.1)
-                pcall(function() replicatesignal(game.Players.LocalPlayer.Kill) end)
+                pcall(function() setfflag("NextGenReplicatorEnabledWrite4", "true") end) task.wait(0.1) pcall(function() replicatesignal(game.Players.LocalPlayer.Kill) end)
             elseif msgLower == ".fp off" then
-                pcall(function() setfflag("NextGenReplicatorEnabledWrite4", "false") end)
-                task.wait(0.1)
-                pcall(function() replicatesignal(game.Players.LocalPlayer.Kill) end)
+                pcall(function() setfflag("NextGenReplicatorEnabledWrite4", "false") end) task.wait(0.1) pcall(function() replicatesignal(game.Players.LocalPlayer.Kill) end)
             elseif msgLower == ".leave" then
                 game:Shutdown()
             elseif msgLower == ".rejoin" then
                 TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
             elseif msgLower:match("^%.say%s+(.+)$") then
-                local messageToSay = msgLower:match("^%.say%s+(.+)$")
-                sendMessage(messageToSay)
+                local messageToSay = msgLower:match("^%.say%s+(.+)$") sendMessage(messageToSay)
             elseif msgLower:match("^%.awl%s+([^%s]+)$") then
                 local input = msgLower:match("^%.awl%s+([^%s]+)$")
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    local name = plr.Name:lower()
-                    local display = plr.DisplayName:lower()
-                    if name:find(input, 1, true) or display:find(input, 1, true) then
-                        getgenv().whitelist[plr.Name] = true
-                        break
-                    end
+                    local name = plr.Name:lower() local display = plr.DisplayName:lower()
+                    if name:find(input, 1, true) or display:find(input, 1, true) then getgenv().whitelist[plr.Name] = true break end
                 end
             elseif msgLower:match("^%.unawl%s+([^%s]+)$") then
                 local input = msgLower:match("^%.unawl%s+([^%s]+)$")
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    local name = plr.Name:lower()
-                    local display = plr.DisplayName:lower()
-                    if name:find(input, 1, true) or display:find(input, 1, true) then
-                        getgenv().whitelist[plr.Name] = nil
-                        break
-                    end
+                    local name = plr.Name:lower() local display = plr.DisplayName:lower()
+                    if name:find(input, 1, true) or display:find(input, 1, true) then getgenv().whitelist[plr.Name] = nil break end
                 end
             elseif msgLower:match("^%.assist%s+([^%s]+)$") then
                 local input = msgLower:match("^%.assist%s+([^%s]+)$")
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    local name = plr.Name:lower()
-                    local display = plr.DisplayName:lower()
-                    if name:find(input, 1, true) or display:find(input, 1, true) then
-                        getgenv().sentryprotected[plr.Name] = true
-                        break
-                    end
+                    local name = plr.Name:lower() local display = plr.DisplayName:lower()
+                    if name:find(input, 1, true) or display:find(input, 1, true) then getgenv().sentryprotected[plr.Name] = true break end
                 end
             elseif msgLower:match("^%.unassist%s+(.+)$") then
                 local input = msgLower:match("^%.unassist%s+(.+)$")
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    local name = plr.Name:lower()
-                    local display = plr.DisplayName:lower()
-                    if name:find(input, 1, true) or display:find(input, 1, true) then
-                        getgenv().sentryprotected[plr.Name] = nil
-                        break
-                    end
+                    local name = plr.Name:lower() local display = plr.DisplayName:lower()
+                    if name:find(input, 1, true) or display:find(input, 1, true) then getgenv().sentryprotected[plr.Name] = nil break end
                 end
             elseif msgLower:match("^%.l%s+(.+)$") then
                 local namesString = msgLower:match("^%.l%s+(.+)$")
                 local names = {}
-                for name in namesString:gmatch("[^%s]+") do
-                    table.insert(names, name:lower())
-                end
+                for name in namesString:gmatch("[^%s]+") do table.insert(names, name:lower()) end
                 local localPlayer = Players.LocalPlayer
                 if not localPlayer then return end
                 reloadTool()
@@ -1356,59 +1186,38 @@ function setupChatListener(player)
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleOPKillCommand(inputName, botName)
                         break
                     end
                 end
             elseif msgLower:match("^%.right%s+([^%s]+)$") then
                 local targetName = msgLower:match("^%.right%s+([^%s]+)$")
-                
                 local myName = LocalPlayer.Name:lower()
                 local myDisplay = LocalPlayer.DisplayName:lower()
-
-                if myName:find(targetName, 1, true) or myDisplay:find(targetName, 1, true) then
-                    summonMode = "right"
-                end
-
+                if myName:find(targetName, 1, true) or myDisplay:find(targetName, 1, true) then summonMode = "right" end
             elseif msgLower:match("^%.left%s+([^%s]+)$") then
                 local targetName = msgLower:match("^%.left%s+([^%s]+)$")
-                
                 local myName = LocalPlayer.Name:lower()
                 local myDisplay = LocalPlayer.DisplayName:lower()
-
-                if myName:find(targetName, 1, true) or myDisplay:find(targetName, 1, true) then
-                    summonMode = "left"
-                end
-
+                if myName:find(targetName, 1, true) or myDisplay:find(targetName, 1, true) then summonMode = "left" end
             elseif msgLower:match("^%.middle%s+([^%s]+)$") then
                 local targetName = msgLower:match("^%.middle%s+([^%s]+)$")
-                
                 local myName = LocalPlayer.Name:lower()
                 local myDisplay = LocalPlayer.DisplayName:lower()
-
-                if myName:find(targetName, 1, true) or myDisplay:find(targetName, 1, true) then
-                    summonMode = "middle"
-                end
+                if myName:find(targetName, 1, true) or myDisplay:find(targetName, 1, true) then summonMode = "middle" end
             elseif msgLower:match("^%.fling%s+([^%s]+)$") then
                 local inputName = msgLower:match("^%.fling%s+([^%s]+)$")
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleFlingCommand(inputName)
                         break
                     end
                 end
             elseif msgLower:match("^%.akill on$") then
-                killall = true
-                summonTarget = nil
+                killall = true summonTarget = nil
             elseif msgLower:match("^%.akill off$") then
                 killall = false
             elseif msgLower:match("^%.lk%s+([^%s]+)$") then
@@ -1416,10 +1225,7 @@ function setupChatListener(player)
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleOPKillCommand(inputName)
                         break
                     end
@@ -1429,10 +1235,7 @@ function setupChatListener(player)
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleStompCommand(inputName, botName)
                         break
                     end
@@ -1442,10 +1245,7 @@ function setupChatListener(player)
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleStompCommand(inputName)
                         break
                     end
@@ -1455,10 +1255,7 @@ function setupChatListener(player)
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleBringCommand(inputName, botName, player.Name)
                         break
                     end
@@ -1468,10 +1265,7 @@ function setupChatListener(player)
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleBringCommand(inputName, nil, player.Name)
                         break
                     end
@@ -1481,10 +1275,7 @@ function setupChatListener(player)
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleDownCommand(inputName, botName)
                         break
                     end
@@ -1494,10 +1285,7 @@ function setupChatListener(player)
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleDownCommand(inputName)
                         break
                     end
@@ -1507,10 +1295,7 @@ function setupChatListener(player)
                 for _, target in pairs(Players:GetPlayers()) do
                     local name, display = target.Name:lower(), target.DisplayName:lower()
                     if name:find(targetName, 1, true) or display:find(targetName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleTakeCommand(targetName, destinationName)
                         break
                     end
@@ -1524,10 +1309,7 @@ function setupChatListener(player)
                     local name = target.Name:lower()
                     local display = target.DisplayName:lower()
                     if name:find(inputName, 1, true) or display:find(inputName, 1, true) then
-                        if isProtected(target) then
-                            sendMessage("Cannot target user " .. target.Name .. " because they are premium.")
-                            return
-                        end
+                        if isProtected(target) then sendMessage("Cannot target user " .. target.Name .. " because they are premium.") return end
                         handleSkyCommand(target.Name)
                         break
                     end
@@ -1536,15 +1318,12 @@ function setupChatListener(player)
                 if player.Name ~= Owner then return end
                 local input = msgLower:match("^%.wl%s+(.+)$")
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    local name = plr.Name:lower()
-                    local display = plr.DisplayName:lower()
+                    local name = plr.Name:lower() local display = plr.DisplayName:lower()
                     if name:find(input, 1, true) or display:find(input, 1, true) then
                         local newTarget = plr.Name
                         whitelistedUsers[newTarget] = true
                         local newPlayer = game.Players:FindFirstChild(newTarget)
-                        if newPlayer then
-                            setupChatListener(newPlayer)
-                        end
+                        if newPlayer then setupChatListener(newPlayer) end
                         break
                     end
                 end
@@ -1552,14 +1331,33 @@ function setupChatListener(player)
                 if player.Name ~= Owner then return end
                 local input = msgLower:match("^%.unwl%s+(.+)$")
                 for _, plr in pairs(game:GetService("Players"):GetPlayers()) do
-                    local name = plr.Name:lower()
-                    local display = plr.DisplayName:lower()
+                    local name = plr.Name:lower() local display = plr.DisplayName:lower()
                     if name:find(input, 1, true) or display:find(input, 1, true) then
                         whitelistedUsers[plr.Name] = nil
                         activeListeners[plr.UserId] = nil
                         break
                     end
                 end
+
+            -- NEW CONFIG COMMANDS
+            elseif msgLower:match("^%.save%s+(.+)$") then
+                local name = msgLower:match("^%.save%s+(.+)$")
+                if saveConfig(name) then
+                    sendMessage("Config " .. name .. " was saved successfully.")
+                else
+                    sendMessage("Config " .. name .. " couldn't save to folder.")
+                end
+            elseif msgLower:match("^%.load%s+(.+)$") then
+                local name = msgLower:match("^%.load%s+(.+)$")
+                if loadConfig(name) then
+                    sendMessage("Config " .. name .. " was loaded successfully.")
+                else
+                    sendMessage("Config " .. name .. " was unsuccessful with loading.")
+                end
+            elseif msgLower == ".listconfigs" then
+                local list = listConfigs()
+                sendMessage("Configs: " .. list)
+
             end
         end
     end
@@ -1573,9 +1371,7 @@ end
 
 for _, player in pairs(Players:GetPlayers()) do
     if (isAuthorized(player) or isPremium(player) or isBypassPremium(player)) then
-        if isAuthorized(player) then
-            whitelistedUsers[player.Name] = true
-        end
+        if isAuthorized(player) then whitelistedUsers[player.Name] = true end
         setupChatListener(player)
         setupDisplayNameListener(player)
     end
@@ -1584,7 +1380,7 @@ end
 Players.PlayerAdded:Connect(function(player)
     if (isAuthorized(player) or isPremium(player) or isBypassPremium(player)) then
         setupChatListener(player)
-        if (isPremium(player) or isBypassPremium(player))  then
+        if (isPremium(player) or isBypassPremium(player)) then
             setupDisplayNameListener(player)
         end
     end
@@ -1638,21 +1434,16 @@ task.spawn(function()
     while true do
         if teleporting and not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
             local targetCharacter
-
             if lockedTarget and lockedTarget.Character then
                 targetCharacter = lockedTarget.Character
             elseif sentrytarget and sentrytarget.Character then
                 targetCharacter = sentrytarget.Character
             end
-
             if targetCharacter and LocalPlayer.Character then
                 local targetHRP = targetCharacter:FindFirstChild("HumanoidRootPart")
                 local playerHRP = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if targetHRP and playerHRP then
-                    playerHRP.CFrame = CFrame.lookAt(
-                        targetHRP.Position + Vector3.new(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20)),
-                        targetHRP.Position
-                    )
+                    playerHRP.CFrame = CFrame.lookAt(targetHRP.Position + Vector3.new(math.random(-20, 20), math.random(-20, 20), math.random(-20, 20)), targetHRP.Position)
                 end
             end
         end
@@ -1794,23 +1585,15 @@ task.spawn(function()
     while true do
         if bringonly and lockedTarget and lockedTarget.Character and not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
             local character = lockedTarget.Character
-
             local bodyEffects = character and character:FindFirstChild("BodyEffects")
-
             local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
             local isSDeath = bodyEffects and bodyEffects:FindFirstChild("SDeath") and bodyEffects["SDeath"].Value
-
             local grabbed = false
-
             local character = lockedTarget.Character
             local humanoidRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             local upperTorso = character and character:FindFirstChild("UpperTorso")
 
-            if bringconnection then
-                bringconnection:Disconnect()
-                bringconnection = nil
-            end
-
+            if bringconnection then bringconnection:Disconnect() bringconnection = nil end
             bringconnection = character.ChildAdded:Connect(function(child)
                 if child.Name == "GRABBING_CONSTRAINT" then
                     grabbed = true
@@ -1828,7 +1611,6 @@ task.spawn(function()
             if not grabbed and isKO and humanoidRootPart and upperTorso then
                 teleporting = false
                 voiding = false
-
                 humanoidRootPart.Velocity = Vector3.zero
                 humanoidRootPart.RotVelocity = Vector3.zero
                 humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
@@ -1861,23 +1643,15 @@ task.spawn(function()
     while true do
         if takeonly and lockedTarget and lockedTarget.Character and not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
             local character = lockedTarget.Character
-
             local bodyEffects = character and character:FindFirstChild("BodyEffects")
-
             local isKO = bodyEffects and bodyEffects:FindFirstChild("K.O") and bodyEffects["K.O"].Value
             local isSDeath = bodyEffects and bodyEffects:FindFirstChild("SDeath") and bodyEffects["SDeath"].Value
-
             local grabbed = false
-
             local character = lockedTarget.Character
             local humanoidRootPart = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
             local upperTorso = character and character:FindFirstChild("UpperTorso")
 
-            if takeconnection then
-                takeconnection:Disconnect()
-                takeconnection = nil
-            end
-
+            if takeconnection then takeconnection:Disconnect() takeconnection = nil end
             takeconnection = character.ChildAdded:Connect(function(child)
                 if child.Name == "GRABBING_CONSTRAINT" then
                     grabbed = true
@@ -1895,7 +1669,6 @@ task.spawn(function()
             if not grabbed and isKO and humanoidRootPart and upperTorso then
                 teleporting = false
                 voiding = false
-
                 humanoidRootPart.Velocity = Vector3.zero
                 humanoidRootPart.RotVelocity = Vector3.zero
                 humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
@@ -2014,10 +1787,7 @@ task.spawn(function()
             if char and char:FindFirstChild("HumanoidRootPart") and targetHRP then
                 teleporting = true
                 voiding = false
-
-                char.HumanoidRootPart.CFrame = CFrame.new(
-                    targetHRP.Position + Vector3.new(0, 0, math.random(-30, 30))
-                )
+                char.HumanoidRootPart.CFrame = CFrame.new(targetHRP.Position + Vector3.new(0, 0, math.random(-30, 30)))
             end
         end
         task.wait()
@@ -2027,15 +1797,12 @@ end)
 task.spawn(function()
     while true do
         if killall and not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
-
             local switchTarget = false
             if lockedTarget and lockedTarget.Character then
                 local character = lockedTarget.Character
                 local bodyEffects = character:FindFirstChild("BodyEffects")
                 local isSDeath = bodyEffects and bodyEffects:FindFirstChild("SDeath") and bodyEffects["SDeath"].Value
-                if isSDeath then
-                    switchTarget = true
-                end
+                if isSDeath then switchTarget = true end
             else
                 switchTarget = true
             end
@@ -2043,17 +1810,10 @@ task.spawn(function()
             if switchTarget then
                 local candidates = {}
                 for _, player in pairs(Players:GetPlayers()) do
-                    if player.Name ~= Owner
-                       and player ~= Players.LocalPlayer
-                       and player.Character 
-                       and player.Character:FindFirstChild("BodyEffects") 
-                       and player.Character.BodyEffects:FindFirstChild("SDeath") 
-                       and not player.Character.BodyEffects["SDeath"].Value
-                       and not player.Character:FindFirstChild("GRABBING_CONSTRAINT") then
+                    if player.Name ~= Owner and player ~= Players.LocalPlayer and player.Character and player.Character:FindFirstChild("BodyEffects") and player.Character.BodyEffects:FindFirstChild("SDeath") and not player.Character.BodyEffects["SDeath"].Value and not player.Character:FindFirstChild("GRABBING_CONSTRAINT") then
                         table.insert(candidates, player)
                     end
                 end
-
                 if #candidates > 0 then
                     lockedTarget = candidates[math.random(1, #candidates)]
                 end
@@ -2093,14 +1853,7 @@ RunService.Heartbeat:Connect(function()
     for _, tool in ipairs(playerChar:GetChildren()) do
         if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
             local handle = tool.Handle
-            ReplicatedStorage.MainEvent:FireServer(
-                "ShootGun",
-                handle,
-                handle.Position,
-                targetPart.Position,
-                targetPart,
-                Vector3.new(0, 0, 0)
-            )
+            ReplicatedStorage.MainEvent:FireServer("ShootGun", handle, handle.Position, targetPart.Position, targetPart, Vector3.new(0, 0, 0))
         end
     end
 end)
@@ -2127,14 +1880,7 @@ RunService.Heartbeat:Connect(function()
             if target and target.Character and target.Character:FindFirstChild("Head") then
                 for _, tool in pairs(LocalPlayer.Character:GetChildren()) do
                     if tool:IsA("Tool") and tool:FindFirstChild("Handle") then
-                        ReplicatedStorage.MainEvent:FireServer(
-                            "ShootGun",
-                            tool.Handle,
-                            tool.Handle.Position,
-                            target.Character.Head.Position,
-                            target.Character.Head,
-                            Vector3.new(0, 0, 0)
-                        )
+                        ReplicatedStorage.MainEvent:FireServer("ShootGun", tool.Handle, tool.Handle.Position, target.Character.Head.Position, target.Character.Head, Vector3.new(0, 0, 0))
                     end
                 end
             end
@@ -2158,9 +1904,7 @@ function getEquippedGuns()
     local char = Player.Character
     if char then
         for _, tool in ipairs(char:GetChildren()) do
-            if tool:IsA("Tool") then
-                table.insert(guns, tool)
-            end
+            if tool:IsA("Tool") then table.insert(guns, tool) end
         end
     end
     return guns
@@ -2169,9 +1913,7 @@ end
 function getAmmoCount(gunName)
     local inventory = Player.DataFolder.Inventory
     local ammo = inventory:FindFirstChild(gunName)
-    if ammo then
-        return tonumber(ammo.Value)
-    end
+    if ammo then return tonumber(ammo.Value) end
     return nil
 end
 
@@ -2180,16 +1922,12 @@ function hasGun(toolName)
     local Backpack = Player:FindFirstChild("Backpack")
     if Backpack then
         for _, item in ipairs(Backpack:GetChildren()) do
-            if item:IsA("Tool") and item.Name == toolName then
-                return true
-            end
+            if item:IsA("Tool") and item.Name == toolName then return true end
         end
     end
     if Character then
         for _, item in ipairs(Character:GetChildren()) do
-            if item:IsA("Tool") and item.Name == toolName then
-                return true
-            end
+            if item:IsA("Tool") and item.Name == toolName then return true end
         end
     end
     return false
@@ -2202,9 +1940,7 @@ function getNextItemToBuy()
     for i = 1, #Guns do
         local gunKey = Guns[i]
         local gunInfo = gunData[gunKey]
-        if gunInfo and not hasGun(gunInfo.toolName) then
-            return "gun"
-        end
+        if gunInfo and not hasGun(gunInfo.toolName) then return "gun" end
     end
 
     if automaskenabled and not (char:FindFirstChild("[Mask]") or char:FindFirstChild("In-gameMask")) then
@@ -2232,13 +1968,11 @@ if executor and executor:lower():find("xeno") then
             game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
         end
 
-        if game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Tool") then        
+        if game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Tool") then
             game:GetService("Players").LocalPlayer.Character.Humanoid:UnequipTools()
         end
 
-        if typeof(object) ~= "Instance" then
-            return
-        end
+        if typeof(object) ~= "Instance" then return end
 
         local click_detector = object:FindFirstChild("ClickDetector") or object
         local old_cd_parent = click_detector.Parent
@@ -2254,7 +1988,7 @@ if executor and executor:lower():find("xeno") then
         click_detector.MaxActivationDistance = math.huge
 
         local connection = game:GetService("RunService").Heartbeat:Connect(function()
-            stub_part.CFrame = workspace.Camera.CFrame * CFrame.new(0, 0, -20) * CFrame.new(workspace.Camera.CFrame.LookVector)       
+            stub_part.CFrame = workspace.Camera.CFrame * CFrame.new(0, 0, -20) * CFrame.new(workspace.Camera.CFrame.LookVector)
             game:GetService("VirtualUser"):ClickButton1(Vector2.new(20, 20), workspace:FindFirstChildOfClass("Camera").CFrame)
         end)
         click_detector.MouseClick:Once(function()
@@ -2283,9 +2017,7 @@ task.spawn(function()
 
             if shopPart and Character and root and humanoid and not hasGun(toolName) then
                 buyingGunInProgress = true
-
                 local clickDetector = shopPart:FindFirstChild("ClickDetector")
-
                 while not hasGun(toolName) do
                     if root then
                         root.CFrame = CFrame.new(workspace.Ignored.Shop[shopName].Head.CFrame.Position + Vector3.new(0, -8, 0))
@@ -2298,9 +2030,7 @@ task.spawn(function()
             end
         end
         currentGunIndex += 1
-        if currentGunIndex > #Guns then
-            currentGunIndex = 1
-        end
+        if currentGunIndex > #Guns then currentGunIndex = 1 end
         task.wait()
     end
 end)
@@ -2311,27 +2041,18 @@ task.spawn(function()
         if char and automaskenabled and getNextItemToBuy() == "mask" then
             pcall(function()
                 local humanoid = char:FindFirstChildOfClass("Humanoid")
-
                 if Player.Backpack:FindFirstChild("[Mask]") or char:FindFirstChild("[Mask]") or char:FindFirstChild("In-gameMask") then buyingMaskInProgress = false return end
 
                 local ShopFolder = workspace:WaitForChild("Ignored"):WaitForChild("Shop")
-
-                local maskItem = ShopFolder:FindFirstChild(
-                    (math.random(1, 2) == 1 and "[Skull Mask] - $66" or "[Riot Mask] - $66")
-                )
+                local maskItem = ShopFolder:FindFirstChild(math.random(1, 2) == 1 and "[Skull Mask] - $66" or "[Riot Mask] - $66")
                 if not maskItem then return end
-
                 local clickDetector = maskItem:FindFirstChild("ClickDetector")
                 if not clickDetector then return end
 
                 buyingMaskInProgress = true
-
                 while automaskenabled and char and not (Player.Backpack:FindFirstChild("[Mask]") or char:FindFirstChild("[Mask]")) do
-                    local char = Player.Character
                     local root = char:FindFirstChild("HumanoidRootPart")
-                    if root then
-                        root.CFrame = CFrame.new(maskItem.Head.CFrame.Position + Vector3.new(0, -8, 0))
-                    end
+                    if root then root.CFrame = CFrame.new(maskItem.Head.CFrame.Position + Vector3.new(0, -8, 0)) end
                     pcall(function() fireclickdetector(clickDetector) end)
                     task.wait()
                     if not automaskenabled or not char or (Player.Backpack:FindFirstChild("[Mask]") or char:FindFirstChild("[Mask]")) then break end
@@ -2343,18 +2064,14 @@ task.spawn(function()
                         local maskTool = Player.Backpack:FindFirstChild("[Mask]") or char:FindFirstChild("[Mask]")
                         if maskTool then
                             for _, tool in ipairs(char:GetChildren()) do
-                                if tool:IsA("Tool") and tool.Name ~= "[Mask]" then
-                                    tool.Parent = Player.Backpack
-                                end
+                                if tool:IsA("Tool") and tool.Name ~= "[Mask]" then tool.Parent = Player.Backpack end
                             end
                             maskTool.Parent = char
                             maskTool:Activate()
                         end
                         if char:FindFirstChild("In-gameMask") then
                             local equippedMask = char:FindFirstChild("[Mask]")
-                            if equippedMask then
-                                equippedMask.Parent = Player.Backpack
-                            end
+                            if equippedMask then equippedMask.Parent = Player.Backpack end
                             buyingMaskInProgress = false
                             break
                         end
@@ -2369,10 +2086,10 @@ task.spawn(function()
 end)
 
 AmmoMap = {
-    ["[Rifle]"]      = "5 [Rifle Ammo] - $273",
-    ["[AUG]"]        = "90 [AUG Ammo] - $87",
-    ["[Flintlock]"]  = "6 [Flintlock Ammo] - $163",
-    ["[LMG]"]        = "200 [LMG Ammo] - $328",
+    ["[Rifle]"] = "5 [Rifle Ammo] - $273",
+    ["[AUG]"] = "90 [AUG Ammo] - $87",
+    ["[Flintlock]"] = "6 [Flintlock Ammo] - $163",
+    ["[LMG]"] = "200 [LMG Ammo] - $328",
     ["[Double-Barrel SG]"] = "18 [Double-Barrel SG Ammo] - $55"
 }
 
@@ -2385,7 +2102,6 @@ task.spawn(function()
                 local ammoCount = getAmmoCount(gunName)
                 if ammoCount and ammoCount <= 0 then
                     buyingInProgress = true
-
                     local ShopFolder = workspace:WaitForChild("Ignored"):WaitForChild("Shop")
                     local ammoItemName = AmmoMap[gunName]
                     local ammoItem = ShopFolder:FindFirstChild(ammoItemName)
@@ -2397,12 +2113,8 @@ task.spawn(function()
                         local purchaseCount = 0
 
                         while purchaseCount < 6 do
-                            if humanoid then
-                                humanoid:UnequipTools()
-                            end
-                            if root then
-                                root.CFrame = CFrame.new(ammoItem.Head.CFrame.Position + Vector3.new(0, -8, 0))
-                            end
+                            if humanoid then humanoid:UnequipTools() end
+                            if root then root.CFrame = CFrame.new(ammoItem.Head.CFrame.Position + Vector3.new(0, -8, 0)) end
                             pcall(function() fireclickdetector(clickDetector) end)
                             if not humanoid or humanoid.Health <= 0 then break end
                             task.wait()
@@ -2439,7 +2151,7 @@ task.spawn(function()
             end
         end
         if not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
-            local Backpack = LocalPlayer:FindFirstChild("Backpack")
+            local Backpack = localPlayer:FindFirstChild("Backpack")
             if Backpack then
                 for _, gunKey in ipairs(Guns) do
                     local gunName = gunData[gunKey].toolName
@@ -2483,9 +2195,7 @@ task.spawn(function()
     while task.wait(0.2) do
         if getgenv().enabled1 and not lockedTarget then
             local playersToCheck = {Owner}
-            for pname, _ in pairs(getgenv().sentryprotected) do
-                table.insert(playersToCheck, pname)
-            end
+            for pname, _ in pairs(getgenv().sentryprotected) do table.insert(playersToCheck, pname) end
 
             for _, pname in ipairs(playersToCheck) do
                 local player = Players:FindFirstChild(pname)
@@ -2497,17 +2207,13 @@ task.spawn(function()
 
                     if bodyEffects and lastDamager and humanoid then
                         local healthNow = humanoid.Health
-                        if getgenv().lastHealths[pname] == nil then
-                            getgenv().lastHealths[pname] = healthNow
-                        end
+                        if getgenv().lastHealths[pname] == nil then getgenv().lastHealths[pname] = healthNow end
 
                         if healthNow + 0.05 < getgenv().lastHealths[pname] then
                             getgenv().lastHealths[pname] = healthNow
                             task.wait(0.1)
-
                             local recheck = bodyEffects:FindFirstChild("LastDamager")
                             local attackerName = recheck and tostring(recheck.Value)
-
                             if attackerName ~= "" then
                                 local attacker = Players:FindFirstChild(attackerName)
                                 if attacker then
@@ -2524,7 +2230,6 @@ task.spawn(function()
                             local atkChar = sentrytarget.Character
                             local atkBE = atkChar:FindFirstChild("BodyEffects")
                             local isKO = atkBE and atkBE:FindFirstChild("K.O") and atkBE["K.O"].Value
-
                             if isKO then
                                 sentrytarget = nil
                                 teleporting = false
@@ -2544,32 +2249,21 @@ end)
 task.spawn(function()
     while task.wait() do
         if summonTarget and summonTarget.Character and not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
-            
             local lp = Players.LocalPlayer
             if not lp.Character then continue end
-
             local hrp = lp.Character:FindFirstChild("HumanoidRootPart")
             local thrp = summonTarget.Character:FindFirstChild("HumanoidRootPart")
-
             if hrp and thrp then
                 hrp.Velocity = Vector3.zero
                 hrp.RotVelocity = Vector3.zero
                 hrp.AssemblyLinearVelocity = Vector3.zero
                 hrp.AssemblyAngularVelocity = Vector3.zero
-
                 local offset
-                if summonMode == "middle" then
-                    offset = CFrame.new(0, 3, 4)
-                elseif summonMode == "right" then
-                    offset = CFrame.new(3, 3, 0)
-                elseif summonMode == "left" then
-                    offset = CFrame.new(-3, 3, 0)
-                else
-                    offset = CFrame.new(0, 3, 4)
-                end
-
+                if summonMode == "middle" then offset = CFrame.new(0, 3, 4)
+                elseif summonMode == "right" then offset = CFrame.new(3, 3, 0)
+                elseif summonMode == "left" then offset = CFrame.new(-3, 3, 0)
+                else offset = CFrame.new(0, 3, 4) end
                 hrp.CFrame = thrp.CFrame * offset
-
                 hrp.Velocity = Vector3.zero
                 hrp.RotVelocity = Vector3.zero
                 hrp.AssemblyLinearVelocity = Vector3.zero
@@ -2601,7 +2295,6 @@ end)
 
 RunService.Heartbeat:Connect(function()
     if not (flingonly and lockedTarget) then return end
-
     LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.new(99999999, 99999999, 99999999)
     RunService.RenderStepped:Wait()
     LocalPlayer.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
@@ -2617,16 +2310,12 @@ end)
 local Workspace = game:GetService("Workspace")
 
 for _, v in ipairs(Workspace:GetDescendants()) do
-    if v:IsA("Seat") then
-        v:Destroy()
-    end
+    if v:IsA("Seat") then v:Destroy() end
 end
 
 Workspace.DescendantAdded:Connect(function(descendant)
     task.defer(function()
-        if descendant:IsA("Seat") then
-            descendant:Destroy()
-        end
+        if descendant:IsA("Seat") then descendant:Destroy() end
     end)
 end)
 
@@ -2635,39 +2324,24 @@ local antiConnections = {}
 function stripAnimations(character)
     if character:GetAttribute("AntiServerLaggerHandled") then return end
     character:SetAttribute("AntiServerLaggerHandled", true)
-
     local humanoid = character:WaitForChild("Humanoid", 5)
     if not humanoid then return end
-
     local animator = humanoid:FindFirstChildOfClass("Animator")
-    if animator then
-        animator:Destroy()
-    end
-
+    if animator then animator:Destroy() end
     local animate = character:FindFirstChild("Animate")
-    if animate then
-        animate.Disabled = true
-    end
-
+    if animate then animate.Disabled = true end
     humanoid.AutoRotate = false
 end
 
 function onPlayer(player)
     if player == LocalPlayer then return end
-
-    if player.Character then
-        stripAnimations(player.Character)
-    end
-
+    if player.Character then stripAnimations(player.Character) end
     local charConn = player.CharacterAdded:Connect(stripAnimations)
     table.insert(antiConnections, charConn)
 end
 
 function EnableAntiServerLagger()
-    for _, player in ipairs(Players:GetPlayers()) do
-        onPlayer(player)
-    end
-
+    for _, player in ipairs(Players:GetPlayers()) do onPlayer(player) end
     antiConnections.playerAdded = Players.PlayerAdded:Connect(onPlayer)
 end
 
@@ -2678,37 +2352,27 @@ if BlackScreen then
         local Players = game:GetService("Players")
         local player = Players.LocalPlayer
         local cam = workspace.CurrentCamera
-
         cam.CameraType = Enum.CameraType.Scriptable
         cam.CFrame = CFrame.new(99999, 99999, 99999)
-
         player.CharacterAdded:Connect(function()
             task.wait(1)
             cam.CameraType = Enum.CameraType.Scriptable
             cam.CFrame = CFrame.new(99999, 99999, 99999)
         end)
-
         workspace.Terrain:Clear()
-
         for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("ParticleEmitter") or obj:IsA("Light") then
-                obj:Destroy()
-            end
+            if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("ParticleEmitter") or obj:IsA("Light") then obj:Destroy() end
             if obj:IsA("BasePart") then
                 obj.Transparency = 1
                 obj.CastShadow = false
                 obj.Material = Enum.Material.SmoothPlastic
-                if obj:FindFirstChild("SurfaceAppearance") then
-                    obj.SurfaceAppearance:Destroy()
-                end
+                if obj:FindFirstChild("SurfaceAppearance") then obj.SurfaceAppearance:Destroy() end
             end
         end
-
         local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
         gui.Name = "FPS_BLACKOUT"
         gui.Parent = game.CoreGui
         gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
         local frame = Instance.new("Frame", gui)
         frame.BackgroundColor3 = Color3.new(0, 0, 0)
         frame.Position = UDim2.new(-0.5, 0, -0.5, 0)
@@ -2725,36 +2389,31 @@ pcall(function()
 end)
 pcall(function()
     local lasers = workspace:FindFirstChild("MAP") and workspace.MAP:FindFirstChild("Indestructible") and workspace.MAP.Indestructible:FindFirstChild("Lasers")
-    if lasers then
-        lasers:Destroy()
-    end
+    if lasers then lasers:Destroy() end
 end)
 pcall(function()
-    pcall(function()
-        for _, descendant in ipairs(workspace:GetDescendants()) do
-            if descendant:IsA("BasePart") then
-                descendant.Material = Enum.Material.Plastic
-                descendant.Color = Color3.fromRGB(0, 0, 0)
-                descendant.Reflectance = 0
-                descendant.CastShadow = false
-            end
+    for _, descendant in ipairs(workspace:GetDescendants()) do
+        if descendant:IsA("BasePart") then
+            descendant.Material = Enum.Material.Plastic
+            descendant.Color = Color3.fromRGB(0, 0, 0)
+            descendant.Reflectance = 0
+            descendant.CastShadow = false
         end
-
-        workspace.DescendantAdded:Connect(function(part)
-            if part:IsA("BasePart") then
-                part.Material = Enum.Material.Plastic
-                part.Color = Color3.fromRGB(0, 0, 0)
-                part.Reflectance = 0
-                part.CastShadow = false
-            end
-        end)
+    end
+    workspace.DescendantAdded:Connect(function(part)
+        if part:IsA("BasePart") then
+            part.Material = Enum.Material.Plastic
+            part.Color = Color3.fromRGB(0, 0, 0)
+            part.Reflectance = 0
+            part.CastShadow = false
+        end
     end)
+end)
 
-    pcall(function()
-        local VirtualUser = game:GetService("VirtualUser")
-        game:GetService("Players").LocalPlayer.Idled:Connect(function()
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new())
-        end)
+pcall(function()
+    local VirtualUser = game:GetService("VirtualUser")
+    game:GetService("Players").LocalPlayer.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
     end)
 end)
