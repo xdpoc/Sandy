@@ -1,6 +1,6 @@
 local Script = getgenv().Script or "Get Sandy for free at discord.gg/fJeSNdJr4D"
 
-local Owner = "BerthaHilton"
+local Owner = getgenv().Owner or "BerthaHilton"
 local BlackScreen = getgenv().BlackScreen or false
 local DisableRendering = getgenv().DisableRendering or false
 local FPSCap = getgenv().FPSCap or 60
@@ -112,23 +112,23 @@ local currentGunIndex = 1
 local gunData = {
     rifle = {
         toolName = "[Rifle]",
-        shopName = "[Rifle] - $1694"
+        shopName = "[Rifle]"
     },
     aug = {
         toolName = "[AUG]",
-        shopName = "[AUG] - $2131"
+        shopName = "[AUG]"
     },
     flintlock = {
         toolName = "[Flintlock]",
-        shopName = "[Flintlock] - $1421"
+        shopName = "[Flintlock]"
     },
     lmg = {
         toolName = "[LMG]",
-        shopName = "[LMG] - $4098"
+        shopName = "[LMG]"
     },
     db = {
         toolName = "[Double-Barrel SG]",
-        shopName = "[Double-Barrel SG] - $1475"
+        shopName = "[Double-Barrel SG]"
     },
 }
 
@@ -1541,6 +1541,21 @@ function setupChatListener(player)
                         break
                     end
                 end
+            elseif msgLower == ".rifle" then
+                buyCommand = "rifle"
+                sendMessage("Buying Rifle...")
+            elseif msgLower == ".aug" then
+                buyCommand = "aug"
+                sendMessage("Buying AUG...")
+            elseif msgLower == ".flintlock" then
+                buyCommand = "flintlock"
+                sendMessage("Buying Flintlock...")
+            elseif msgLower == ".lmg" then
+                buyCommand = "lmg"
+                sendMessage("Buying LMG...")
+            elseif msgLower == ".db" then
+                buyCommand = "db"
+                sendMessage("Buying Double-Barrel SG...")
             end
         end
     end
@@ -2123,9 +2138,225 @@ Player.CharacterAdded:Connect(function(char)
     Character = char
     humanoid = char:WaitForChild("Humanoid")
     root = char:WaitForChild("HumanoidRootPart")
-    bodyEffects = char:WaitForChild("BodyEffects")
-    koValue = bodyEffects:WaitForChild("K.O")
 end)
+
+function getEquippedGuns()
+    local guns = {}
+    local char = Player.Character
+    if char then
+        for _, tool in ipairs(char:GetChildren()) do
+            if tool:IsA("Tool") then
+                table.insert(guns, tool)
+            end
+        end
+    end
+    return guns
+end
+
+function getAmmoCount(gunName)
+    local inventory = Player.DataFolder.Inventory
+    local ammo = inventory:FindFirstChild(gunName)
+    if ammo then
+        return tonumber(ammo.Value)
+    end
+    return nil
+end
+
+function hasGun(toolName)
+    local Character = Player.Character
+    local Backpack = Player:FindFirstChild("Backpack")
+    if Backpack then
+        for _, item in ipairs(Backpack:GetChildren()) do
+            if item:IsA("Tool") and item.Name == toolName then
+                return true
+            end
+        end
+    end
+    if Character then
+        for _, item in ipairs(Character:GetChildren()) do
+            if item:IsA("Tool") and item.Name == toolName then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local buyCommand = nil
+
+local function findShopItem(itemName)
+    local shop = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop")
+    if not shop then return nil end
+    
+    local attempts = {
+        itemName,
+        itemName .. " - $",
+        itemName:gsub("%[", ""):gsub("%]", "")
+    }
+    
+    for _, attempt in ipairs(attempts) do
+        for _, child in ipairs(shop:GetChildren()) do
+            if child.Name:lower():find(attempt:lower(), 1, true) then
+                return child
+            end
+        end
+    end
+    return nil
+end
+
+local function safeFireClick(part)
+    if not part or not part:FindFirstChild("ClickDetector") then return false end
+    
+    local cd = part.ClickDetector
+    local char = Player.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    
+    local root = char.HumanoidRootPart
+    root.CFrame = CFrame.new(part.Head.Position + Vector3.new(0, -5, 5))
+    task.wait(0.1)
+    
+    pcall(function() fireclickdetector(cd) end)
+    pcall(function() 
+        game:GetService("VirtualInputManager"):SendMouseButtonEvent(0,0,0,true,game,1)
+        task.wait()
+        game:GetService("VirtualInputManager"):SendMouseButtonEvent(0,0,0,false,game,1)
+    end)
+    return true
+end
+
+function getNextItemToBuy()
+    if buyCommand then
+        local gunInfo = gunData[buyCommand]
+        if gunInfo and not hasGun(gunInfo.toolName) then
+            return "gun"
+        end
+        buyCommand = nil
+    end
+    
+    for i = 1, #Guns do
+        local gunKey = Guns[i]
+        local gunInfo = gunData[gunKey]
+        if gunInfo and not hasGun(gunInfo.toolName) then
+            return "gun"
+        end
+    end
+
+    if automaskenabled and not (Player.Character:FindFirstChild("[Mask]") or Player.Character:FindFirstChild("In-gameMask")) then
+        return "mask"
+    end
+    return nil
+end
+
+task.spawn(function()
+    while true do
+        if getNextItemToBuy() == "gun" then
+            local targetGun = nil
+            if buyCommand then
+                targetGun = gunData[buyCommand]
+            else
+                local gunKey = Guns[currentGunIndex]
+                targetGun = gunData[gunKey]
+            end
+            
+            if targetGun then
+                local shopPart = findShopItem(targetGun.shopName)
+                if shopPart and not hasGun(targetGun.toolName) then
+                    buyingGunInProgress = true
+                    local tries = 0
+                    while tries < 20 and not hasGun(targetGun.toolName) do
+                        safeFireClick(shopPart)
+                        task.wait(0.2)
+                        tries += 1
+                    end
+                    buyingGunInProgress = false
+                    if buyCommand then buyCommand = nil end
+                end
+            end
+        end
+        
+        if not buyCommand then
+            currentGunIndex = currentGunIndex % #Guns + 1
+        end
+        task.wait(0.5)
+    end
+end)
+
+task.spawn(function()
+    while true do
+        if automaskenabled and getNextItemToBuy() == "mask" then
+            local shop = workspace:FindFirstChild("Ignored") and workspace.Ignored:FindFirstChild("Shop")
+            if not shop then task.wait(1) continue end
+            
+            local maskNames = {"[Skull Mask]", "[Riot Mask]", "[Gas Mask]", "[Clown Mask]"}
+            local maskPart = nil
+            
+            for _, maskName in ipairs(maskNames) do
+                maskPart = findShopItem(maskName)
+                if maskPart then break end
+            end
+            
+            if maskPart then
+                buyingMaskInProgress = true
+                local tries = 0
+                while tries < 10 do
+                    safeFireClick(maskPart)
+                    task.wait(0.3)
+                    local char = Player.Character
+                    if char and (char:FindFirstChild("[Mask]") or char:FindFirstChild("In-gameMask")) then
+                        break
+                    end
+                    tries += 1
+                end
+                buyingMaskInProgress = false
+            end
+        end
+        task.wait(1)
+    end
+end)
+
+AmmoMap = {
+    ["[Rifle]"] = "[Rifle Ammo]",
+    ["[AUG]"] = "[AUG Ammo]", 
+    ["[Flintlock]"] = "[Flintlock Ammo]",
+    ["[LMG]"] = "[LMG Ammo]",
+    ["[Double-Barrel SG]"] = "[Double-Barrel SG Ammo]"
+}
+
+task.spawn(function()
+    while true do
+        local char = Player.Character
+        if not char then task.wait(1) continue end
+        
+        for _, tool in ipairs(char:GetChildren()) do
+            if tool:IsA("Tool") then
+                local gunName = tool.Name
+                local ammoItemName = AmmoMap[gunName]
+                if ammoItemName then
+                    local shopPart = findShopItem(ammoItemName)
+                    if shopPart then
+                        local ammoValue = Player.DataFolder.Inventory:FindFirstChild(gunName)
+                        if ammoValue and ammoValue.Value <= 5 then
+                            buyingInProgress = true
+                            local tries = 0
+                            while tries < 15 and (not ammoValue or ammoValue.Value <= 5) do
+                                safeFireClick(shopPart)
+                                task.wait(0.2)
+                                ammoValue = Player.DataFolder.Inventory:FindFirstChild(gunName)
+                                tries += 1
+                            end
+                            buyingInProgress = false
+                        end
+                    end
+                end
+            end
+        end
+        task.wait(0.5)
+    end
+end)
+
+local humanoid = Character:FindFirstChild("Humanoid")
+local bodyEffects = Character and Character:FindFirstChild("BodyEffects")
+local koValue = bodyEffects and bodyEffects:FindFirstChild("K.O")
 
 local lastDamagerName = ""
 getgenv().lastHealths = {}
@@ -2139,9 +2370,8 @@ task.spawn(function()
                 end
             end
         end
-
         if not (buyingInProgress or buyingGunInProgress or buyingMaskInProgress) then
-            local Backpack = LocalPlayer:FindFirstChild("Backpack")
+            local Backpack = localPlayer:FindFirstChild("Backpack")
             if Backpack then
                 for _, gunKey in ipairs(Guns) do
                     local gunName = gunData[gunKey].toolName
@@ -2154,15 +2384,12 @@ task.spawn(function()
                 end
             end
         end
-
         if autodrop then
             ReplicatedStorage.MainEvent:FireServer("DropMoney", "15000")
         end
-
         if humanoid and koValue and koValue.Value == true then
             humanoid.Health = 0
         end
-
         if shouldSwitch and #ragebottargets > 0 then
             local attempts = 0
             while attempts < #ragebottargets do
@@ -2177,10 +2404,9 @@ task.spawn(function()
                         break
                     end
                 end
-                attempts = attempts + 1
+                attempts += 1
             end
         end
-
         task.wait()
     end
 end)
@@ -2287,15 +2513,18 @@ end)
 
 local hitboxsize = 30
 
-RunService.RenderStepped:Connect(function()
-    for _, plr in pairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then
-            local char = plr.Character
-            if char then
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                if hrp then
-                    hrp.Size = Vector3.new(hitboxsize, hitboxsize, hitboxsize)
-                    hrp.CanCollide = false
+local Players = cloneref(game:GetService("Players"))
+local Client = Players.LocalPlayer
+
+RunService.RenderStepped:Connect(function ()
+    for _, Player in pairs(Players:GetPlayers()) do
+        if Player ~= Client then
+            local character = Player.Character
+            if character then
+                local HRP = character:FindFirstChild("HumanoidRootPart")
+                if HRP then
+                    HRP.Size = Vector3.new(hitboxsize, hitboxsize, hitboxsize)
+                    HRP.CanCollide = false
                 end
             end
         end
@@ -2303,58 +2532,97 @@ RunService.RenderStepped:Connect(function()
 end)
 
 RunService.Heartbeat:Connect(function()
-    if flingonly and lockedTarget and Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") then
-        Player.Character.HumanoidRootPart.Velocity = Vector3.new(99999999, 99999999, 99999999)
-        RunService.RenderStepped:Wait()
-        Player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+    if not (flingonly and lockedTarget) then return end
+
+    Player.Character.HumanoidRootPart.Velocity = Vector3.new(99999999, 99999999, 99999999)
+    RunService.RenderStepped:Wait()
+    Player.Character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+end)
+
+Player.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    humanoid = newChar:WaitForChild("Humanoid")
+    bodyEffects = newChar:WaitForChild("BodyEffects")
+    koValue = bodyEffects:WaitForChild("K.O")
+end)
+
+local Workspace = game:GetService("Workspace")
+
+for _, v in ipairs(Workspace:GetDescendants()) do
+    if v:IsA("Seat") then
+        v:Destroy()
     end
+end
+
+Workspace.DescendantAdded:Connect(function(descendant)
+    task.defer(function()
+        if descendant:IsA("Seat") then
+            descendant:Destroy()
+        end
+    end)
 end)
 
 local antiConnections = {}
 
-function stripAnimations(char)
-    if char:GetAttribute("AntiServerLaggerHandled") then return end
-    char:SetAttribute("AntiServerLaggerHandled", true)
+function stripAnimations(character)
+    if character:GetAttribute("AntiServerLaggerHandled") then return end
+    character:SetAttribute("AntiServerLaggerHandled", true)
 
-    local hum = char:WaitForChild("Humanoid", 5)
-    if not hum then return end
+    local humanoid = character:WaitForChild("Humanoid", 5)
+    if not humanoid then return end
 
-    local anim = hum:FindFirstChildOfClass("Animator")
-    if anim then anim:Destroy() end
+    local animator = humanoid:FindFirstChildOfClass("Animator")
+    if animator then
+        animator:Destroy()
+    end
 
-    local animate = char:FindFirstChild("Animate")
-    if animate then animate.Disabled = true end
+    local animate = character:FindFirstChild("Animate")
+    if animate then
+        animate.Disabled = true
+    end
 
-    hum.AutoRotate = false
+    humanoid.AutoRotate = false
 end
 
-function onPlayerAdded(plr)
-    if plr == LocalPlayer then return end
-    if plr.Character then stripAnimations(plr.Character) end
-    plr.CharacterAdded:Connect(stripAnimations)
+function onPlayer(player)
+    if player == LocalPlayer then return end
+
+    if player.Character then
+        stripAnimations(player.Character)
+    end
+
+    local charConn = player.CharacterAdded:Connect(stripAnimations)
+    table.insert(antiConnections, charConn)
 end
 
-for _, plr in ipairs(Players:GetPlayers()) do
-    onPlayerAdded(plr)
+function EnableAntiServerLagger()
+    for _, player in ipairs(Players:GetPlayers()) do
+        onPlayer(player)
+    end
+
+    antiConnections.playerAdded = Players.PlayerAdded:Connect(onPlayer)
 end
 
-Players.PlayerAdded:Connect(onPlayerAdded)
+EnableAntiServerLagger()
 
 if BlackScreen then
     pcall(function()
+        local Players = game:GetService("Players")
+        local player = Players.LocalPlayer
         local cam = workspace.CurrentCamera
+
         cam.CameraType = Enum.CameraType.Scriptable
-        cam.CFrame = CFrame.new(99999,99999,99999)
+        cam.CFrame = CFrame.new(99999, 99999, 99999)
 
         player.CharacterAdded:Connect(function()
             task.wait(1)
             cam.CameraType = Enum.CameraType.Scriptable
-            cam.CFrame = CFrame.new(99999,99999,99999)
+            cam.CFrame = CFrame.new(99999, 99999, 99999)
         end)
 
         workspace.Terrain:Clear()
 
-        for _, obj in ipairs(workspace:GetDescendants()) do
+        for _, obj in pairs(workspace:GetDescendants()) do
             if obj:IsA("Decal") or obj:IsA("Texture") or obj:IsA("ParticleEmitter") or obj:IsA("Light") then
                 obj:Destroy()
             end
@@ -2362,20 +2630,22 @@ if BlackScreen then
                 obj.Transparency = 1
                 obj.CastShadow = false
                 obj.Material = Enum.Material.SmoothPlastic
-                if obj:FindFirstChild("SurfaceAppearance") then obj.SurfaceAppearance:Destroy() end
+                if obj:FindFirstChild("SurfaceAppearance") then
+                    obj.SurfaceAppearance:Destroy()
+                end
             end
         end
 
-        local gui = Instance.new("ScreenGui")
+        local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
         gui.Name = "FPS_BLACKOUT"
         gui.Parent = game.CoreGui
         gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
-        local f = Instance.new("Frame", gui)
-        f.BackgroundColor3 = Color3.new(0,0,0)
-        f.Position = UDim2.new(-0.5,0,-0.5,0)
-        f.Size = UDim2.new(2,0,2,0)
-        f.ZIndex = 9999
+        local frame = Instance.new("Frame", gui)
+        frame.BackgroundColor3 = Color3.new(0, 0, 0)
+        frame.Position = UDim2.new(-0.5, 0, -0.5, 0)
+        frame.Size = UDim2.new(2, 0, 2, 0)
+        frame.ZIndex = 9999
     end)
 end
 
@@ -2385,36 +2655,38 @@ pcall(function()
     settings().Rendering.QualityLevel = "Level01"
     UserSettings():GetService("UserGameSettings").MasterVolume = 0
 end)
-
 pcall(function()
-    local lasers = workspace.MAP and workspace.MAP.Indestructible and workspace.MAP.Indestructible.Lasers
-    if lasers then lasers:Destroy() end
-end)
-
-pcall(function()
-    for _, d in ipairs(workspace:GetDescendants()) do
-        if d:IsA("BasePart") then
-            d.Material = Enum.Material.Plastic
-            d.Color = Color3.fromRGB(0,0,0)
-            d.Reflectance = 0
-            d.CastShadow = false
-        end
+    local lasers = workspace:FindFirstChild("MAP") and workspace.MAP:FindFirstChild("Indestructible") and workspace.MAP.Indestructible:FindFirstChild("Lasers")
+    if lasers then
+        lasers:Destroy()
     end
-
-    workspace.DescendantAdded:Connect(function(p)
-        if p:IsA("BasePart") then
-            p.Material = Enum.Material.Plastic
-            p.Color = Color3.fromRGB(0,0,0)
-            p.Reflectance = 0
-            p.CastShadow = false
-        end
-    end)
 end)
-
 pcall(function()
-    local vu = game:GetService("VirtualUser")
-    LocalPlayer.Idled:Connect(function()
-        vu:CaptureController()
-        vu:ClickButton2(Vector2.new())
+    pcall(function()
+        for _, descendant in ipairs(workspace:GetDescendants()) do
+            if descendant:IsA("BasePart") then
+                descendant.Material = Enum.Material.Plastic
+                descendant.Color = Color3.fromRGB(0, 0, 0)
+                descendant.Reflectance = 0
+                descendant.CastShadow = false
+            end
+        end
+
+        workspace.DescendantAdded:Connect(function(part)
+            if part:IsA("BasePart") then
+                part.Material = Enum.Material.Plastic
+                part.Color = Color3.fromRGB(0, 0, 0)
+                part.Reflectance = 0
+                part.CastShadow = false
+            end
+        end)
+    end)
+
+    pcall(function()
+        local VirtualUser = game:GetService("VirtualUser")
+        game:GetService("Players").LocalPlayer.Idled:Connect(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+        end)
     end)
 end)
