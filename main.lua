@@ -1,6 +1,6 @@
 local Script = "Get Sandy for free at discord.gg/fJeSNdJr4D"
 
-local Owner = "Youngbakonboy2233"  -- Updated from your loader
+local Owner = "BerthaHilton"  -- Updated from your loader
 local BlackScreen = false
 local DisableRendering = false
 local FPSCap = 60
